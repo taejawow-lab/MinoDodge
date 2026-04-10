@@ -224,6 +224,7 @@ class Game {
             invincibleTimer: 0,
             score: 0,
             nearMissCount: 0,
+            direction: 'front', // 기본 방향: 정면
         };
 
         // 불리 초기화
@@ -382,8 +383,9 @@ class Game {
         if (!click) return;
 
         const categories = CUSTOMIZATION_CATEGORIES;
-        const catY = 120;
-        const catH = 40;
+        // 렌더와 동일한 좌표 사용 (catY=150, catH=35)
+        const catY = 150;
+        const catH = 35;
 
         // 카테고리별 좌우 화살표
         for (let i = 0; i < categories.length; i++) {
@@ -393,15 +395,29 @@ class Game {
             const maxOpt = cat.options.length;
 
             // 왼쪽 화살표
-            if (Collision.pointInRect(click.x, click.y, 130, y + 5, 30, 25)) {
+            if (Collision.pointInRect(click.x, click.y, 130, y + 5, 30, 22)) {
                 this.customization[key] = (this.customization[key] - 1 + maxOpt) % maxOpt;
+                // 성별 변경 시 hair/face/body 연동
+                if (key === 'gender') {
+                    const gOpt = GENDER_OPTIONS[this.customization.gender];
+                    this.customization.hair = gOpt.hairDefault;
+                    this.customization.face = gOpt.faceDefault;
+                    this.customization.body = gOpt.bodyDefault;
+                }
                 this._rebuildPlayerSprite();
                 Sound.buttonClick();
                 return;
             }
             // 오른쪽 화살표
-            if (Collision.pointInRect(click.x, click.y, 250, y + 5, 30, 25)) {
+            if (Collision.pointInRect(click.x, click.y, 250, y + 5, 30, 22)) {
                 this.customization[key] = (this.customization[key] + 1) % maxOpt;
+                // 성별 변경 시 hair/face/body 연동
+                if (key === 'gender') {
+                    const gOpt = GENDER_OPTIONS[this.customization.gender];
+                    this.customization.hair = gOpt.hairDefault;
+                    this.customization.face = gOpt.faceDefault;
+                    this.customization.body = gOpt.bodyDefault;
+                }
                 this._rebuildPlayerSprite();
                 Sound.buttonClick();
                 return;
@@ -530,6 +546,13 @@ class Game {
             dx *= norm;
             dy *= norm;
         }
+
+        // 이동 방향에 따라 바라보는 방향 갱신
+        if (dy < 0) this.player.direction = 'back';
+        else if (dy > 0) this.player.direction = 'front';
+        else if (dx < 0) this.player.direction = 'left';
+        else if (dx > 0) this.player.direction = 'right';
+        // dx=0, dy=0이면 마지막 방향 유지
 
         this.player.x += dx * this.player.speed * dtSec;
         this.player.y += dy * this.player.speed * dtSec;
@@ -1090,16 +1113,17 @@ class Game {
         ctx.font = 'bold 14px monospace';
         ctx.fillText('캐릭터 꾸미기', this.WIDTH / 2, 30);
 
-        // 프리뷰
-        if (this.playerFrames && this.playerFrames[0]) {
-            const frame = this.playerFrames[0];
-            const previewScale = 3;
+        // 프리뷰 (정면 프레임 사용, 없으면 뒷모습 폴백)
+        const previewFrames = this.playerFrontFrames || this.playerFrames;
+        if (previewFrames && previewFrames[0]) {
+            const frame = previewFrames[0];
+            const previewScale = 4;
             const pw = MAIN_CHARACTER.width * previewScale;
             const ph = MAIN_CHARACTER.height * previewScale;
             // 스케일된 프리뷰를 그리기
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(frame, 0, 0, frame.width, frame.height,
-                this.WIDTH / 2 - pw / 2, 45, pw, ph);
+                this.WIDTH / 2 - pw / 2, 40, pw, ph);
         }
 
         // 카테고리 리스트
@@ -1363,12 +1387,23 @@ class Game {
             ctx.drawImage(this.starFrames[this.angelStar.frame], this.angelStar.x, this.angelStar.y);
         }
 
-        // 플레이어 렌더
+        // 플레이어 렌더 (방향에 따라 프레임 선택)
         if (this.player && this.playerFrames) {
+            let dirFrames;
+            switch (this.player.direction) {
+                case 'front': dirFrames = this.playerFrontFrames; break;
+                case 'back':  dirFrames = this.playerFrames; break;
+                case 'left':  dirFrames = this.playerLeftFrames; break;
+                case 'right': dirFrames = this.playerRightFrames; break;
+                default:      dirFrames = this.playerFrontFrames; break;
+            }
+            // 해당 방향 프레임이 없으면 기본 프레임 폴백
+            const activeFrames = dirFrames || this.playerFrames;
+
             // 무적 깜빡임
             const isInvincible = this.player.invincibleTimer > 0 || this.skillSystem.isOsoiActive();
             if (!isInvincible || Math.floor(Date.now() / 100) % 2 === 0) {
-                ctx.drawImage(this.playerFrames[this.player.frame % this.playerFrames.length], this.player.x, this.player.y);
+                ctx.drawImage(activeFrames[this.player.frame % activeFrames.length], this.player.x, this.player.y);
             }
 
             // 무적 오라 이펙트
