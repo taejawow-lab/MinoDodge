@@ -115,23 +115,32 @@ class InputHandler {
         this.touchLeft = false;
         this.touchRight = false;
 
-        const DEAD_ZONE = 15; // 15px 데드존
+        const DEAD_ZONE = 6; // 6px 데드존 (반응 빠르게)
 
         for (const id in this.activeTouches) {
             const t = this.activeTouches[id];
-            if (t.isSkill) continue; // 스킬 터치는 이동에 영향 없음
+            if (t.isSkill) continue;
 
             const dx = t.currentX - t.startX;
             const dy = t.currentY - t.startY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
 
             // 데드존 체크
-            if (Math.abs(dx) < DEAD_ZONE && Math.abs(dy) < DEAD_ZONE) continue;
+            if (dist < DEAD_ZONE) continue;
 
             // 4방향 매핑 (대각선도 허용)
             if (dx < -DEAD_ZONE) this.touchLeft = true;
             if (dx > DEAD_ZONE) this.touchRight = true;
             if (dy < -DEAD_ZONE) this.touchUp = true;
             if (dy > DEAD_ZONE) this.touchDown = true;
+
+            // 드래그 시작점 점진 이동 (끌기 조작 개선)
+            // 손가락이 많이 벗어나면 시작점을 살짝 따라오게
+            if (dist > 40) {
+                const ratio = 0.3;
+                t.startX += dx * ratio;
+                t.startY += dy * ratio;
+            }
         }
     }
 
