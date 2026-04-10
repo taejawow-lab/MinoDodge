@@ -869,9 +869,9 @@ class Game {
         if (this.gameOverTimer > 1000) {
             const c = this.input.getClick();
             if (c) {
-                if (Collision.pointInRect(c.x, c.y, this.WIDTH / 2 - 80, 310, 70, 35)) {
+                if (Collision.pointInRect(c.x, c.y, this.WIDTH / 2 - 85, 280, 80, 35)) {
                     this.startStage(this.currentStage);
-                } else if (Collision.pointInRect(c.x, c.y, this.WIDTH / 2 + 10, 310, 70, 35)) {
+                } else if (Collision.pointInRect(c.x, c.y, this.WIDTH / 2 + 5, 280, 80, 35)) {
                     this.state = GameState.STAGE_SELECT;
                     this.input.clearClicks();
                 }
@@ -1892,37 +1892,55 @@ class Game {
         // 플레이 화면 위에 오버레이
         this.renderPlaying(ctx);
 
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
         ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
 
         ctx.textAlign = 'center';
+
+        // GAME OVER 타이틀
         ctx.fillStyle = '#FF4444';
         ctx.font = 'bold 24px monospace';
-        ctx.fillText('GAME OVER', this.WIDTH / 2, this.HEIGHT / 2 - 40);
+        drawOutlinedText(ctx, 'GAME OVER', this.WIDTH / 2, 150, '#FF4444', '#000000', 'bold 24px monospace');
 
+        // 스테이지 정보
+        const stageName = STAGES[this.currentStage].name + ' — ' + STAGES[this.currentStage].subtitle;
+        ctx.fillStyle = '#AAAAAA';
+        ctx.font = '10px monospace';
+        ctx.fillText(stageName, this.WIDTH / 2, 175);
+
+        // 점수
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '14px monospace';
         const goScore = this.player ? Math.floor(this.player.score) : 0;
         const goDodge = this.player ? this.player.nearMissCount : 0;
-        ctx.fillText('Score: ' + goScore, this.WIDTH / 2, this.HEIGHT / 2);
-        ctx.fillText('Dodges: ' + goDodge, this.WIDTH / 2, this.HEIGHT / 2 + 25);
+        ctx.fillText('Score: ' + goScore, this.WIDTH / 2, 210);
+        ctx.fillText('Dodges: ' + goDodge, this.WIDTH / 2, 235);
 
         if (this.gameOverTimer > 1000) {
+            const btnY = 280;
             // RETRY
-            ctx.fillStyle = '#445566';
-            ctx.fillRect(this.WIDTH / 2 - 80, 310, 70, 35);
-            ctx.strokeStyle = '#667788';
-            ctx.strokeRect(this.WIDTH / 2 - 80, 310, 70, 35);
+            const retryGrad = ctx.createLinearGradient(0, btnY, 0, btnY + 35);
+            retryGrad.addColorStop(0, '#3a5a4a');
+            retryGrad.addColorStop(1, '#2a3a3a');
+            ctx.fillStyle = retryGrad;
+            ctx.fillRect(this.WIDTH / 2 - 85, btnY, 80, 35);
+            ctx.strokeStyle = '#55AA77';
+            ctx.strokeRect(this.WIDTH / 2 - 85, btnY, 80, 35);
             ctx.fillStyle = '#FFFFFF';
-            ctx.font = 'bold 11px monospace';
-            ctx.fillText('RETRY', this.WIDTH / 2 - 45, 332);
+            ctx.font = 'bold 12px monospace';
+            ctx.fillText('▶ RETRY', this.WIDTH / 2 - 45, btnY + 22);
 
             // STAGE SELECT
-            ctx.fillStyle = '#445566';
-            ctx.fillRect(this.WIDTH / 2 + 10, 310, 70, 35);
+            const selGrad = ctx.createLinearGradient(0, btnY, 0, btnY + 35);
+            selGrad.addColorStop(0, '#4a4a5a');
+            selGrad.addColorStop(1, '#2a2a3a');
+            ctx.fillStyle = selGrad;
+            ctx.fillRect(this.WIDTH / 2 + 5, btnY, 80, 35);
             ctx.strokeStyle = '#667788';
-            ctx.strokeRect(this.WIDTH / 2 + 10, 310, 70, 35);
-            ctx.fillText('SELECT', this.WIDTH / 2 + 45, 332);
+            ctx.strokeRect(this.WIDTH / 2 + 5, btnY, 80, 35);
+            ctx.fillStyle = '#CCCCCC';
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText('SELECT', this.WIDTH / 2 + 45, btnY + 22);
         }
 
         ctx.textAlign = 'left';
@@ -1940,7 +1958,8 @@ class Game {
 
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 16px monospace';
-        ctx.fillText(STAGES[this.currentStage].name, this.WIDTH / 2, 120);
+        const stg = STAGES[this.currentStage];
+        ctx.fillText(stg.name + ' — ' + stg.subtitle, this.WIDTH / 2, 120);
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '14px monospace';
@@ -1990,7 +2009,12 @@ class Game {
 
     // --- 엔딩 렌더 ---
     renderEnding(ctx) {
-        ctx.fillStyle = '#1a1a2e';
+        // 엔딩 배경 (밤하늘 → 따뜻한 색조)
+        const endGrad = ctx.createLinearGradient(0, 0, 0, this.HEIGHT);
+        endGrad.addColorStop(0, '#1a1a3e');
+        endGrad.addColorStop(0.5, '#2a2040');
+        endGrad.addColorStop(1, '#1a1a2e');
+        ctx.fillStyle = endGrad;
         ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
 
         if (this.endingPhase < ENDING_SCENES.length) {
@@ -1999,18 +2023,43 @@ class Game {
             const alpha = Math.min(1, this.endingTimer / 500);
             ctx.globalAlpha = alpha;
 
-            // 미노 캐릭터
-            if (this.minoFrontFrames && this.minoFrontFrames[0]) {
-                ctx.drawImage(this.minoFrontFrames[0], this.WIDTH / 2 - 30, 120);
+            // 반짝이는 파티클
+            const t = Date.now() / 1000;
+            for (let i = 0; i < 15; i++) {
+                const px = (Math.sin(t * 0.5 + i * 2.1) * 0.5 + 0.5) * this.WIDTH;
+                const py = (Math.cos(t * 0.3 + i * 1.7) * 0.5 + 0.5) * this.HEIGHT * 0.6;
+                ctx.fillStyle = `rgba(255,215,0,${0.2 + Math.sin(t + i) * 0.15})`;
+                ctx.fillRect(px, py, 2, 2);
+            }
+
+            // 미노 캐릭터 (커스터마이즈 반영)
+            const endFrames = this.playerFrontFrames || this.minoFrontFrames;
+            if (endFrames && endFrames[0]) {
+                const f = endFrames[0];
+                const scale = 3;
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(f, 0, 0, f.width, f.height,
+                    this.WIDTH / 2 - f.width * scale / 2, 80, f.width * scale, f.height * scale);
             }
 
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = '13px monospace';
+
+            // 씬 타이틀 (있으면)
+            if (scene.title) {
+                drawOutlinedText(ctx, scene.title, this.WIDTH / 2, 250, '#FFD700', '#000000', 'bold 14px monospace');
+            }
+
+            // 텍스트 (밝은 색, 아웃라인)
+            ctx.font = '12px monospace';
             const lines = scene.text.split('\n');
             for (let i = 0; i < lines.length; i++) {
-                ctx.fillText(lines[i], this.WIDTH / 2, 280 + i * 24);
+                drawOutlinedText(ctx, lines[i], this.WIDTH / 2, 280 + i * 22, '#FFFFFF', '#000000', '12px monospace');
             }
+
+            // 넘기기 안내
+            ctx.fillStyle = '#666688';
+            ctx.font = '9px monospace';
+            ctx.fillText('탭하여 다음', this.WIDTH / 2, this.HEIGHT - 30);
 
             ctx.globalAlpha = 1;
         } else if (this.endingPhase === ENDING_SCENES.length) {
