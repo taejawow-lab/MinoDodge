@@ -1102,7 +1102,7 @@ class Game {
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 18px monospace';
-        ctx.fillText('미노, 모든 것을 피한다!', this.WIDTH / 2, 190);
+        ctx.fillText('미노, 모든 것을 회피한다!', this.WIDTH / 2, 190);
 
         ctx.fillStyle = '#AAAAAA';
         ctx.font = '10px monospace';
@@ -1615,21 +1615,49 @@ class Game {
         ctx.textAlign = 'left';
     }
 
-    // --- 말풍선 렌더 (가독성 개선) ---
+    // --- 말풍선 렌더 (가독성 + 잘림 방지) ---
     _renderSpeechBubble(ctx, x, y, text) {
         ctx.save();
-        ctx.font = 'bold 9px monospace';
-        const tw = ctx.measureText(text).width + 12;
-        const th = 18;
-        const bx = x - tw / 2;
-        const by = y - th - 8;
+
+        // 긴 텍스트 자동 줄바꿈 처리
+        ctx.font = 'bold 8px monospace';
+        const maxBubbleW = 140; // 말풍선 최대 너비
+        const rawW = ctx.measureText(text).width + 14;
+        const lineH = 12;
+        let lines = [];
+
+        if (rawW > maxBubbleW) {
+            // 줄바꿈 필요
+            let line = '';
+            for (const ch of text) {
+                const testW = ctx.measureText(line + ch).width;
+                if (testW > maxBubbleW - 14) {
+                    lines.push(line);
+                    line = ch;
+                } else {
+                    line += ch;
+                }
+            }
+            if (line) lines.push(line);
+        } else {
+            lines = [text];
+        }
+
+        const tw = Math.min(rawW, maxBubbleW);
+        const th = lines.length * lineH + 8;
+
+        // 화면 밖 잘림 방지 — 좌우 클램프
+        let bx = x - tw / 2;
+        if (bx < 4) bx = 4;
+        if (bx + tw > this.WIDTH - 4) bx = this.WIDTH - 4 - tw;
+        const by = Math.max(4, y - th - 8);
+        const centerX = bx + tw / 2;
 
         // 말풍선 본체 — 흰색 배경 + 검은 테두리
         ctx.fillStyle = '#FFFFFF';
         ctx.strokeStyle = '#222222';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
 
-        // 둥근 사각형
         const r = 4;
         ctx.beginPath();
         ctx.moveTo(bx + r, by);
@@ -1637,10 +1665,11 @@ class Game {
         ctx.quadraticCurveTo(bx + tw, by, bx + tw, by + r);
         ctx.lineTo(bx + tw, by + th - r);
         ctx.quadraticCurveTo(bx + tw, by + th, bx + tw - r, by + th);
-        // 꼬리 (삼각형)
-        ctx.lineTo(x + 5, by + th);
-        ctx.lineTo(x, by + th + 6);
-        ctx.lineTo(x - 5, by + th);
+        // 꼬리
+        const tailX = Math.max(bx + 8, Math.min(bx + tw - 8, x));
+        ctx.lineTo(tailX + 4, by + th);
+        ctx.lineTo(tailX, by + th + 5);
+        ctx.lineTo(tailX - 4, by + th);
         ctx.lineTo(bx + r, by + th);
         ctx.quadraticCurveTo(bx, by + th, bx, by + th - r);
         ctx.lineTo(bx, by + r);
@@ -1649,11 +1678,13 @@ class Game {
         ctx.fill();
         ctx.stroke();
 
-        // 텍스트 — 검은색
+        // 텍스트
         ctx.fillStyle = '#111111';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, x, by + th / 2);
+        for (let i = 0; i < lines.length; i++) {
+            ctx.fillText(lines[i], centerX, by + 6 + lineH / 2 + i * lineH);
+        }
         ctx.restore();
     }
 
@@ -1687,8 +1718,10 @@ class Game {
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '14px monospace';
-        ctx.fillText('Score: ' + Math.floor(this.player.score), this.WIDTH / 2, this.HEIGHT / 2);
-        ctx.fillText('Dodges: ' + this.player.nearMissCount, this.WIDTH / 2, this.HEIGHT / 2 + 25);
+        const goScore = this.player ? Math.floor(this.player.score) : 0;
+        const goDodge = this.player ? this.player.nearMissCount : 0;
+        ctx.fillText('Score: ' + goScore, this.WIDTH / 2, this.HEIGHT / 2);
+        ctx.fillText('Dodges: ' + goDodge, this.WIDTH / 2, this.HEIGHT / 2 + 25);
 
         if (this.gameOverTimer > 1000) {
             // RETRY
