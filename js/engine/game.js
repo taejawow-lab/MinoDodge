@@ -361,24 +361,24 @@ class Game {
         // 사운드 토글
         if (this._checkSoundToggle(click)) return;
 
-        const btnW = 100, btnH = 28;
+        const btnW = 120, btnH = 28;
         const cx = this.WIDTH / 2 - btnW / 2;
 
         // START
-        if (Collision.pointInRect(click.x, click.y, cx, 250, btnW, btnH)) {
+        if (Collision.pointInRect(click.x, click.y, cx, 255, btnW, btnH)) {
             Sound.init(); Sound.buttonClick();
             this.state = GameState.STAGE_SELECT;
             this.input.clearClicks();
             return;
         }
         // RANKING
-        if (Collision.pointInRect(click.x, click.y, cx, 285, btnW, btnH)) {
+        if (Collision.pointInRect(click.x, click.y, cx, 290, btnW, btnH)) {
             Sound.init(); Sound.buttonClick();
             this._openRankingView();
             return;
         }
         // CUSTOMIZE
-        if (Collision.pointInRect(click.x, click.y, cx, 320, btnW, btnH)) {
+        if (Collision.pointInRect(click.x, click.y, cx, 325, btnW, btnH)) {
             Sound.init(); Sound.buttonClick();
             this.state = GameState.CHARACTER_CUSTOMIZE;
             this.customizeCategory = 0;
@@ -386,7 +386,7 @@ class Game {
             return;
         }
         // STORY
-        if (Collision.pointInRect(click.x, click.y, cx, 355, btnW, btnH)) {
+        if (Collision.pointInRect(click.x, click.y, cx, 360, btnW, btnH)) {
             Sound.init(); Sound.buttonClick();
             this._startPrologue();
             return;
@@ -1087,58 +1087,242 @@ class Game {
         ctx.textAlign = 'left';
     }
 
-    // --- 타이틀 렌더 ---
-    renderTitle(ctx) {
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
+    // --- 타이틀 배경 프리렌더 ---
+    _prerenderTitleBg() {
+        const c = document.createElement('canvas');
+        c.width = this.WIDTH; c.height = this.HEIGHT;
+        const g = c.getContext('2d');
+        // 그라데이션 배경 (어두운 남색 → 짙은 보라)
+        const grad = g.createLinearGradient(0, 0, 0, this.HEIGHT);
+        grad.addColorStop(0, '#0a0a1a');
+        grad.addColorStop(0.4, '#1a1a3e');
+        grad.addColorStop(1, '#0e0e2a');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, this.WIDTH, this.HEIGHT);
 
-        // 캐릭터 표시
-        if (this.minoFrontFrames && this.minoFrontFrames[0]) {
-            const frame = this.minoFrontFrames[0];
-            ctx.drawImage(frame, this.WIDTH / 2 - frame.width / 2, 60);
+        // 별 파티클 (밤하늘)
+        const starPositions = [];
+        for (let i = 0; i < 40; i++) {
+            starPositions.push({
+                x: Math.floor(Math.random() * this.WIDTH),
+                y: Math.floor(Math.random() * (this.HEIGHT * 0.6)),
+                s: Math.random() < 0.3 ? 2 : 1
+            });
+        }
+        for (const s of starPositions) {
+            g.fillStyle = `rgba(255,255,200,${0.3 + Math.random() * 0.5})`;
+            g.fillRect(s.x, s.y, s.s, s.s);
         }
 
-        // 타이틀 텍스트
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 18px monospace';
-        ctx.fillText('미노, 모든 것을 회피한다!', this.WIDTH / 2, 190);
+        // 지붕 실루엣 (학교 건물)
+        g.fillStyle = '#111122';
+        // 왼쪽 건물
+        g.fillRect(0, 280, 60, 200);
+        g.fillRect(-5, 270, 70, 15);
+        // 오른쪽 건물
+        g.fillRect(260, 300, 60, 180);
+        g.fillRect(255, 290, 70, 15);
+        // 작은 건물들
+        g.fillRect(40, 340, 30, 140);
+        g.fillRect(250, 350, 25, 130);
 
-        ctx.fillStyle = '#AAAAAA';
-        ctx.font = '10px monospace';
-        ctx.fillText('MINO DODGES EVERYTHING', this.WIDTH / 2, 210);
+        // 건물 창문 (노란 불빛)
+        g.fillStyle = '#DDCC44';
+        for (let bx = 10; bx < 50; bx += 18) {
+            for (let by = 300; by < 440; by += 25) {
+                if (Math.random() > 0.3) {
+                    g.globalAlpha = 0.4 + Math.random() * 0.4;
+                    g.fillRect(bx, by, 6, 8);
+                }
+            }
+        }
+        for (let bx = 270; bx < 310; bx += 18) {
+            for (let by = 315; by < 440; by += 25) {
+                if (Math.random() > 0.3) {
+                    g.globalAlpha = 0.4 + Math.random() * 0.4;
+                    g.fillRect(bx, by, 6, 8);
+                }
+            }
+        }
+        g.globalAlpha = 1;
+
+        // 초승달
+        g.fillStyle = '#FFEEAA';
+        g.beginPath();
+        g.arc(260, 40, 12, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#0a0a1a';
+        g.beginPath();
+        g.arc(265, 36, 11, 0, Math.PI * 2);
+        g.fill();
+
+        // 닌자 수리켄 장식 (좌상/우하 코너)
+        this._drawShuriken(g, 35, 45, 10, '#556688');
+        this._drawShuriken(g, 285, 430, 8, '#445577');
+        this._drawShuriken(g, 50, 420, 6, '#334466');
+
+        // 바닥 그라데이션
+        const floorGrad = g.createLinearGradient(0, this.HEIGHT - 40, 0, this.HEIGHT);
+        floorGrad.addColorStop(0, 'rgba(20,20,40,0)');
+        floorGrad.addColorStop(1, 'rgba(10,10,20,0.8)');
+        g.fillStyle = floorGrad;
+        g.fillRect(0, this.HEIGHT - 40, this.WIDTH, 40);
+
+        this.titleBgCanvas = c;
+    }
+
+    _drawShuriken(g, cx, cy, r, color) {
+        g.save();
+        g.translate(cx, cy);
+        g.fillStyle = color;
+        // 4개 날개
+        for (let i = 0; i < 4; i++) {
+            g.save();
+            g.rotate((Math.PI / 2) * i);
+            g.beginPath();
+            g.moveTo(0, -r);
+            g.lineTo(r * 0.3, -r * 0.3);
+            g.lineTo(r, 0);
+            g.lineTo(r * 0.3, r * 0.3);
+            g.lineTo(0, 0);
+            g.closePath();
+            g.fill();
+            g.restore();
+        }
+        // 중앙 원
+        g.fillStyle = '#889AAA';
+        g.beginPath();
+        g.arc(0, 0, r * 0.2, 0, Math.PI * 2);
+        g.fill();
+        g.restore();
+    }
+
+    // --- 타이틀 렌더 ---
+    renderTitle(ctx) {
+        // 배경
+        if (!this.titleBgCanvas) this._prerenderTitleBg();
+        ctx.drawImage(this.titleBgCanvas, 0, 0);
+
+        // 애니메이션 요소: 떠다니는 투사체 실루엣
+        const t = Date.now() / 1000;
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = '#8899BB';
+        // 종이비행기 실루엣들 (사인파로 움직임)
+        for (let i = 0; i < 5; i++) {
+            const px = ((t * 20 + i * 70) % (this.WIDTH + 40)) - 20;
+            const py = 80 + i * 60 + Math.sin(t * 1.5 + i) * 15;
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.rotate(-0.3);
+            ctx.beginPath();
+            ctx.moveTo(0, 0); ctx.lineTo(10, 3); ctx.lineTo(0, 6); ctx.lineTo(2, 3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+        ctx.globalAlpha = 1;
+
+        // 캐릭터 표시 (커스터마이즈 적용된 캐릭터 우선)
+        const displayFrames = this.playerFrontFrames || this.minoFrontFrames;
+        if (displayFrames && displayFrames[0]) {
+            const frame = displayFrames[0];
+            // 살짝 위아래로 떠다니는 효과
+            const floatY = Math.sin(t * 2) * 3;
+            const scale = 3;
+            const dw = frame.width * scale;
+            const dh = frame.height * scale;
+            const charBaseY = 40;
+            ctx.imageSmoothingEnabled = false;
+            // 그림자
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.ellipse(this.WIDTH / 2, charBaseY + dh + 5, dw / 3, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            // 캐릭터
+            ctx.drawImage(frame, 0, 0, frame.width, frame.height,
+                this.WIDTH / 2 - dw / 2, charBaseY + floatY, dw, dh);
+        }
+
+        // 속도선 이펙트 (닌자 느낌)
+        ctx.globalAlpha = 0.08;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 8; i++) {
+            const lx = this.WIDTH / 2 + (Math.random() - 0.5) * 200;
+            const ly = 30 + Math.random() * 140;
+            const len = 10 + Math.random() * 20;
+            ctx.beginPath();
+            ctx.moveTo(lx, ly);
+            ctx.lineTo(lx + len * 0.7, ly + len);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+
+        // 타이틀 텍스트 (아웃라인 + 그림자)
+        ctx.textAlign = 'center';
+        // 그림자
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText('미노, 모든 것을 회피한다!', this.WIDTH / 2 + 1, 199);
+        // 메인 텍스트
+        ctx.fillStyle = '#FFD700';
+        ctx.strokeStyle = '#AA8800';
+        ctx.lineWidth = 0.5;
+        ctx.strokeText('미노, 모든 것을 회피한다!', this.WIDTH / 2, 198);
+        ctx.fillText('미노, 모든 것을 회피한다!', this.WIDTH / 2, 198);
+
+        ctx.fillStyle = '#8899AA';
+        ctx.font = '9px monospace';
+        ctx.fillText('MINO DODGES EVERYTHING', this.WIDTH / 2, 215);
 
         // 플레이어 이름
-        ctx.fillStyle = '#88AADD';
+        ctx.fillStyle = '#88CCFF';
         ctx.font = '12px monospace';
-        ctx.fillText('Player: ' + this.playerName, this.WIDTH / 2, 235);
+        ctx.fillText('Player: ' + this.playerName, this.WIDTH / 2, 238);
 
-        // 버튼들
-        const btnW = 100, btnH = 28;
+        // 버튼들 (세련된 스타일)
+        const btnW = 120, btnH = 28;
         const cx = this.WIDTH / 2 - btnW / 2;
         const buttons = [
-            { y: 250, text: 'START', color: '#445566' },
-            { y: 285, text: 'RANKING', color: '#445566' },
-            { y: 320, text: 'CUSTOMIZE', color: '#445566' },
-            { y: 355, text: 'STORY', color: '#445566' },
+            { y: 255, text: '▶ START', color: '#2a3a4a' },
+            { y: 290, text: '🏆 RANKING', color: '#2a3a4a' },
+            { y: 325, text: '✏ CUSTOMIZE', color: '#2a3a4a' },
+            { y: 360, text: '📖 STORY', color: '#2a3a4a' },
         ];
 
-        ctx.font = 'bold 12px monospace';
+        ctx.font = 'bold 11px monospace';
         for (const btn of buttons) {
-            ctx.fillStyle = btn.color;
+            // 버튼 배경 (그라데이션 느낌)
+            const btnGrad = ctx.createLinearGradient(cx, btn.y, cx, btn.y + btnH);
+            btnGrad.addColorStop(0, '#3a4a5a');
+            btnGrad.addColorStop(1, '#2a3344');
+            ctx.fillStyle = btnGrad;
             ctx.fillRect(cx, btn.y, btnW, btnH);
-            ctx.strokeStyle = '#667788';
+            // 위쪽 하이라이트
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.fillRect(cx, btn.y, btnW, btnH / 2);
+            // 테두리
+            ctx.strokeStyle = '#556677';
+            ctx.lineWidth = 1;
             ctx.strokeRect(cx, btn.y, btnW, btnH);
-            ctx.fillStyle = '#FFFFFF';
+            // 텍스트
+            ctx.fillStyle = '#DDEEFF';
             ctx.fillText(btn.text, this.WIDTH / 2, btn.y + 18);
         }
 
         // 깜빡이는 안내 텍스트
         if (Math.floor(this.titleBlink / 500) % 2 === 0) {
-            ctx.fillStyle = '#888888';
-            ctx.font = '10px monospace';
-            ctx.fillText('Tap or Press Enter', this.WIDTH / 2, 400);
+            ctx.fillStyle = '#556677';
+            ctx.font = '9px monospace';
+            ctx.fillText('Tap or Press Enter', this.WIDTH / 2, 405);
         }
+
+        // 하단 크레딧
+        ctx.fillStyle = '#334455';
+        ctx.font = '8px monospace';
+        ctx.fillText('© 2026 taekm33.org', this.WIDTH / 2, 425);
 
         // 사운드 토글
         this._renderSoundToggle(ctx);
