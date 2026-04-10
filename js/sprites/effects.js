@@ -92,9 +92,9 @@ const INVINCIBLE_AURA = {
 // 말풍선 렌더링 함수
 // ==============================
 function drawSpeechBubble(ctx, x, y, text, maxWidth) {
-    maxWidth = maxWidth || 120;
+    maxWidth = maxWidth || 130;
     ctx.save();
-    ctx.font = '10px monospace';
+    ctx.font = 'bold 10px monospace';
 
     // 텍스트 줄바꿈 처리
     const words = text.split('');
@@ -103,7 +103,7 @@ function drawSpeechBubble(ctx, x, y, text, maxWidth) {
     for (const ch of words) {
         const testLine = currentLine + ch;
         const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth - 16 && currentLine.length > 0) {
+        if (metrics.width > maxWidth - 18 && currentLine.length > 0) {
             lines.push(currentLine);
             currentLine = ch;
         } else {
@@ -112,14 +112,14 @@ function drawSpeechBubble(ctx, x, y, text, maxWidth) {
     }
     if (currentLine) lines.push(currentLine);
 
-    const lineHeight = 14;
-    const padding = 8;
+    const lineHeight = 15;
+    const padding = 9;
     const bubbleWidth = maxWidth;
     const bubbleHeight = lines.length * lineHeight + padding * 2;
 
-    // 말풍선 본체 (둥근 사각형)
+    // 말풍선 본체 — 흰색 배경 + 검은 테두리
     ctx.fillStyle = '#FFFFFF';
-    ctx.strokeStyle = '#333333';
+    ctx.strokeStyle = '#222222';
     ctx.lineWidth = 2;
     const bx = x - bubbleWidth / 2;
     const by = y - bubbleHeight - 10;
@@ -143,8 +143,8 @@ function drawSpeechBubble(ctx, x, y, text, maxWidth) {
     ctx.fill();
     ctx.stroke();
 
-    // 텍스트
-    ctx.fillStyle = '#333333';
+    // 텍스트 — 검은색, 선명하게
+    ctx.fillStyle = '#111111';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     for (let i = 0; i < lines.length; i++) {
@@ -162,7 +162,7 @@ class FloatingText {
         this.x = x;
         this.y = y;
         this.text = text;
-        this.color = color || '#FFFFFF';
+        this.color = color || '#FFEE44'; // 기본 밝은 노란색으로 변경
         this.lifetime = lifetime || 1500; // ms
         this.elapsed = 0;
         this.alpha = 1.0;
@@ -184,12 +184,12 @@ class FloatingText {
         if (!this.alive) return;
         ctx.save();
         ctx.globalAlpha = this.alpha;
-        ctx.font = 'bold 12px monospace';
+        ctx.font = 'bold 13px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        // 외곽선
+        // 외곽선 — 두꺼운 검은 테두리로 가독성 확보
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.strokeText(this.text, this.x, this.y);
         // 채우기
         ctx.fillStyle = this.color;

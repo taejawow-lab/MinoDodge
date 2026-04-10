@@ -1,3 +1,13 @@
+// 외곽선 텍스트 렌더링 헬퍼 — 가독성 확보용
+function drawOutlinedText(ctx, text, x, y, fillColor, outlineColor, font) {
+    if (font) ctx.font = font;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = outlineColor || '#000000';
+    ctx.fillStyle = fillColor || '#FFFFFF';
+    ctx.strokeText(text, x, y);
+    ctx.fillText(text, x, y);
+}
+
 // 게임 상태 열거
 const GameState = {
     NAME_INPUT: 'name_input',
@@ -790,7 +800,7 @@ class Game {
             this._saveProgress();
         }
 
-        const finalScore = Math.floor(this.player.score);
+        const finalScore = Math.floor(this.player ? this.player.score : 0);
         this.stageScores[this.currentStage] = finalScore;
 
         // 리더보드 제출
@@ -1302,7 +1312,8 @@ class Game {
 
     // --- 스테이지 인트로 렌더 ---
     renderStageIntro(ctx) {
-        ctx.fillStyle = '#1a1a2e';
+        // 어두운 배경으로 텍스트 대비 확보
+        ctx.fillStyle = '#0a0a1a';
         ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
 
         const stage = STAGES[this.currentStage];
@@ -1310,20 +1321,24 @@ class Game {
 
         ctx.globalAlpha = alpha;
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-        ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 24px monospace';
-        ctx.fillText(stage.name, this.WIDTH / 2, this.HEIGHT / 2 - 20);
+        // 스테이지 이름 — 큰 노란 글씨 + 외곽선
+        drawOutlinedText(ctx, stage.name, this.WIDTH / 2, this.HEIGHT / 2 - 20,
+            '#FFD700', '#000000', 'bold 20px monospace');
 
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '14px monospace';
-        ctx.fillText(stage.subtitle, this.WIDTH / 2, this.HEIGHT / 2 + 15);
+        // 서브타이틀 — 흰색 + 외곽선
+        drawOutlinedText(ctx, stage.subtitle, this.WIDTH / 2, this.HEIGHT / 2 + 15,
+            '#FFFFFF', '#000000', 'bold 14px monospace');
 
-        ctx.fillStyle = '#888888';
-        ctx.font = '10px monospace';
-        ctx.fillText('준비하세요...', this.WIDTH / 2, this.HEIGHT / 2 + 50);
+        // "준비하세요..." — 밝은 초록 + 깜빡임
+        const blinkAlpha = (Math.sin(Date.now() / 300) + 1) / 2;
+        ctx.globalAlpha = alpha * (0.4 + blinkAlpha * 0.6);
+        drawOutlinedText(ctx, '준비하세요...', this.WIDTH / 2, this.HEIGHT / 2 + 50,
+            '#44FF88', '#000000', 'bold 12px monospace');
 
         ctx.globalAlpha = 1;
+        ctx.textBaseline = 'alphabetic';
         ctx.textAlign = 'left';
     }
 
@@ -1437,6 +1452,10 @@ class Game {
     _renderHUD(ctx) {
         const stage = STAGES[this.currentStage];
 
+        // 상단 HUD 배경 바 — 텍스트 가독성 확보
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, this.WIDTH, 38);
+
         // HP 하트
         for (let i = 0; i < this.player.maxHp; i++) {
             const hx = 5 + i * 20;
@@ -1447,118 +1466,148 @@ class Game {
             }
         }
 
-        // 스테이지 표시
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 10px monospace';
+        // 스테이지 이름 — 중앙 상단, 흰색 bold + 외곽선
         ctx.textAlign = 'center';
-        ctx.fillText(stage.name, this.WIDTH / 2, 15);
+        ctx.textBaseline = 'middle';
+        drawOutlinedText(ctx, stage.name, this.WIDTH / 2, 12,
+            '#FFFFFF', '#000000', 'bold 11px monospace');
 
-        // 타이머
+        // 타이머 — 스테이지 이름 아래, 노란색 bold 큰 글씨
         const timeLeft = Math.max(0, Math.ceil(this.stageTimer / 1000));
-        ctx.fillStyle = timeLeft <= 5 ? '#FF4444' : '#FFDD44';
-        ctx.font = 'bold 14px monospace';
-        ctx.fillText(timeLeft + 's', this.WIDTH / 2, 32);
+        const timerColor = timeLeft <= 5 ? '#FF4444' : '#FFEE44';
+        drawOutlinedText(ctx, timeLeft + 's', this.WIDTH / 2, 28,
+            timerColor, '#000000', 'bold 14px monospace');
 
-        // 스코어
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 10px monospace';
+        // SCORE — 사운드 토글 왼쪽에 배치 (잘림 방지)
         ctx.textAlign = 'right';
-        ctx.fillText('SCORE: ' + Math.floor(this.player.score), this.WIDTH - 5, 15);
+        drawOutlinedText(ctx, 'SCORE: ' + Math.floor(this.player.score), this.WIDTH - 45, 12,
+            '#FFEE44', '#000000', 'bold 10px monospace');
 
         // 니어미스 카운트
-        ctx.fillStyle = '#FFDD44';
-        ctx.font = '9px monospace';
-        ctx.fillText('DODGE: ' + this.player.nearMissCount, this.WIDTH - 5, 28);
+        drawOutlinedText(ctx, 'DODGE: ' + this.player.nearMissCount, this.WIDTH - 45, 28,
+            '#88FF88', '#000000', 'bold 9px monospace');
 
-        // 스킬 게이지
-        const gaugeX = 5;
-        const gaugeY = this.HEIGHT - 30;
-        const gaugeW = 60;
-        const gaugeH = 8;
+        // 하단 HUD 배경 바 — 스킬 버튼 가독성 확보
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.fillRect(0, this.HEIGHT - 78, this.WIDTH, 78);
+
+        // 스킬 게이지 — 중앙 하단, 더 넓고 밝은 색상
+        const gaugeX = 70;
+        const gaugeY = this.HEIGHT - 24;
+        const gaugeW = 180;
+        const gaugeH = 12;
         const gaugePct = this.skillSystem.getGaugePercent();
 
-        ctx.fillStyle = '#222222';
+        ctx.fillStyle = '#1a1a1a';
         ctx.fillRect(gaugeX, gaugeY, gaugeW, gaugeH);
-        ctx.fillStyle = gaugePct >= 0.6 ? '#44DD44' : (gaugePct >= 0.4 ? '#DDDD44' : '#DD4444');
+        ctx.fillStyle = gaugePct >= 0.6 ? '#44EE44' : (gaugePct >= 0.4 ? '#EEEE44' : '#EE4444');
         ctx.fillRect(gaugeX, gaugeY, gaugeW * gaugePct, gaugeH);
-        ctx.strokeStyle = '#666666';
+        ctx.strokeStyle = '#888888';
+        ctx.lineWidth = 1;
         ctx.strokeRect(gaugeX, gaugeY, gaugeW, gaugeH);
 
-        ctx.fillStyle = '#AAAAAA';
-        ctx.font = '8px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText('SP: ' + Math.floor(this.skillSystem.gauge), gaugeX, gaugeY - 3);
-
-        // 스킬 버튼 (좌하: 봉구 Q, 우하: 오소이 E)
-        const btnSize = 36;
-
-        // 봉구 버튼
-        const b1x = 5, b1y = this.HEIGHT - 70;
-        const canBonggu = this.skillSystem.gauge >= this.skillSystem.bongguCost;
-        ctx.fillStyle = canBonggu ? '#553322' : '#332222';
-        ctx.fillRect(b1x, b1y, btnSize, btnSize);
-        ctx.strokeStyle = canBonggu ? '#AA6644' : '#444444';
-        ctx.strokeRect(b1x, b1y, btnSize, btnSize);
-        ctx.fillStyle = canBonggu ? '#FFD700' : '#666666';
-        ctx.font = 'bold 8px monospace';
+        // SP 텍스트 — 게이지 위
         ctx.textAlign = 'center';
-        ctx.fillText('봉구', b1x + btnSize / 2, b1y + 14);
-        ctx.fillText('[Q]', b1x + btnSize / 2, b1y + 26);
-        ctx.fillStyle = '#888888';
-        ctx.font = '7px monospace';
-        ctx.fillText('60SP', b1x + btnSize / 2, b1y + 34);
+        drawOutlinedText(ctx, 'SP: ' + Math.floor(this.skillSystem.gauge), gaugeX + gaugeW / 2, gaugeY - 5,
+            '#FFFFFF', '#000000', 'bold 9px monospace');
 
-        // 오소이 버튼
-        const b2x = this.WIDTH - btnSize - 5, b2y = this.HEIGHT - 70;
-        const canOsoi = this.skillSystem.gauge >= this.skillSystem.osoiCost;
-        ctx.fillStyle = canOsoi ? '#223355' : '#222233';
-        ctx.fillRect(b2x, b2y, btnSize, btnSize);
-        ctx.strokeStyle = canOsoi ? '#4488DD' : '#444444';
-        ctx.strokeRect(b2x, b2y, btnSize, btnSize);
-        ctx.fillStyle = canOsoi ? '#88DDFF' : '#666666';
+        // 스킬 버튼 (좌하: 봉구 Q, 우하: 오소이 E) — 크기 키움
+        const btnSize = 40;
+
+        // 봉구 버튼 — 밝은 파란 배경, 흰 글씨, 테두리
+        const b1x = 5, b1y = this.HEIGHT - 74;
+        const canBonggu = this.skillSystem.gauge >= this.skillSystem.bongguCost;
+        ctx.fillStyle = canBonggu ? '#CC6633' : '#3a2a2a';
+        ctx.fillRect(b1x, b1y, btnSize, btnSize);
+        ctx.strokeStyle = canBonggu ? '#FFAA66' : '#555555';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(b1x, b1y, btnSize, btnSize);
+        ctx.lineWidth = 1;
+        ctx.textAlign = 'center';
+        drawOutlinedText(ctx, '봉구', b1x + btnSize / 2, b1y + 14,
+            canBonggu ? '#FFFFFF' : '#888888', '#000000', 'bold 10px monospace');
+        drawOutlinedText(ctx, '[Q]', b1x + btnSize / 2, b1y + 28,
+            canBonggu ? '#FFEE88' : '#666666', '#000000', 'bold 9px monospace');
+        ctx.fillStyle = canBonggu ? '#FFCC44' : '#555555';
         ctx.font = 'bold 8px monospace';
-        ctx.fillText('오소이', b2x + btnSize / 2, b2y + 14);
-        ctx.fillText('[E]', b2x + btnSize / 2, b2y + 26);
-        ctx.fillStyle = '#888888';
-        ctx.font = '7px monospace';
-        ctx.fillText('40SP', b2x + btnSize / 2, b2y + 34);
+        ctx.fillText('60SP', b1x + btnSize / 2, b1y + 38);
+
+        // 오소이 버튼 — 밝은 보라 배경, 흰 글씨, 테두리
+        const b2x = this.WIDTH - btnSize - 5, b2y = this.HEIGHT - 74;
+        const canOsoi = this.skillSystem.gauge >= this.skillSystem.osoiCost;
+        ctx.fillStyle = canOsoi ? '#3355AA' : '#2a2a3a';
+        ctx.fillRect(b2x, b2y, btnSize, btnSize);
+        ctx.strokeStyle = canOsoi ? '#66AAFF' : '#555555';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(b2x, b2y, btnSize, btnSize);
+        ctx.lineWidth = 1;
+        drawOutlinedText(ctx, '오소이', b2x + btnSize / 2, b2y + 14,
+            canOsoi ? '#FFFFFF' : '#888888', '#000000', 'bold 10px monospace');
+        drawOutlinedText(ctx, '[E]', b2x + btnSize / 2, b2y + 28,
+            canOsoi ? '#88DDFF' : '#666666', '#000000', 'bold 9px monospace');
+        ctx.fillStyle = canOsoi ? '#66CCFF' : '#555555';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText('40SP', b2x + btnSize / 2, b2y + 38);
 
         // 사운드 토글
         this._renderSoundToggle(ctx);
 
+        ctx.textBaseline = 'alphabetic';
         ctx.textAlign = 'left';
     }
 
-    // --- 말풍선 렌더 ---
+    // --- 말풍선 렌더 (가독성 개선) ---
     _renderSpeechBubble(ctx, x, y, text) {
-        ctx.font = '8px monospace';
-        const tw = ctx.measureText(text).width + 8;
+        ctx.save();
+        ctx.font = 'bold 9px monospace';
+        const tw = ctx.measureText(text).width + 12;
+        const th = 18;
         const bx = x - tw / 2;
-        const by = y - 16;
+        const by = y - th - 8;
 
-        ctx.fillStyle = 'rgba(255,255,255,0.9)';
-        ctx.fillRect(bx, by, tw, 14);
-        // 말풍선 꼬리
+        // 말풍선 본체 — 흰색 배경 + 검은 테두리
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#222222';
+        ctx.lineWidth = 2;
+
+        // 둥근 사각형
+        const r = 4;
         ctx.beginPath();
-        ctx.moveTo(x - 3, by + 14);
-        ctx.lineTo(x, by + 19);
-        ctx.lineTo(x + 3, by + 14);
+        ctx.moveTo(bx + r, by);
+        ctx.lineTo(bx + tw - r, by);
+        ctx.quadraticCurveTo(bx + tw, by, bx + tw, by + r);
+        ctx.lineTo(bx + tw, by + th - r);
+        ctx.quadraticCurveTo(bx + tw, by + th, bx + tw - r, by + th);
+        // 꼬리 (삼각형)
+        ctx.lineTo(x + 5, by + th);
+        ctx.lineTo(x, by + th + 6);
+        ctx.lineTo(x - 5, by + th);
+        ctx.lineTo(bx + r, by + th);
+        ctx.quadraticCurveTo(bx, by + th, bx, by + th - r);
+        ctx.lineTo(bx, by + r);
+        ctx.quadraticCurveTo(bx, by, bx + r, by);
+        ctx.closePath();
         ctx.fill();
+        ctx.stroke();
 
-        ctx.fillStyle = '#333333';
+        // 텍스트 — 검은색
+        ctx.fillStyle = '#111111';
         ctx.textAlign = 'center';
-        ctx.fillText(text, x, by + 11);
-        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, by + th / 2);
+        ctx.restore();
     }
 
-    // --- 플로팅 텍스트 렌더 ---
+    // --- 플로팅 텍스트 렌더 (외곽선 + 크기 개선) ---
     _renderFloatingTexts(ctx) {
         for (const ft of this.floatingTexts) {
+            ctx.save();
             ctx.globalAlpha = Math.max(0, ft.alpha);
-            ctx.fillStyle = ft.color;
-            ctx.font = 'bold 10px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText(ft.text, ft.x + 20, ft.y);
+            ctx.textBaseline = 'middle';
+            drawOutlinedText(ctx, ft.text, ft.x + 20, ft.y,
+                ft.color || '#FFEE44', '#000000', 'bold 12px monospace');
+            ctx.restore();
         }
         ctx.globalAlpha = 1;
         ctx.textAlign = 'left';
@@ -1822,15 +1871,17 @@ class Game {
 
     // --- 사운드 토글 버튼 렌더 ---
     _renderSoundToggle(ctx) {
-        const x = this.WIDTH - 40, y = 5, w = 35, h = 22;
-        ctx.fillStyle = Sound.enabled ? '#334433' : '#443333';
+        const x = this.WIDTH - 38, y = 6, w = 33, h = 20;
+        ctx.fillStyle = Sound.enabled ? '#225522' : '#552222';
         ctx.fillRect(x, y, w, h);
-        ctx.strokeStyle = '#666666';
+        ctx.strokeStyle = Sound.enabled ? '#44AA44' : '#AA4444';
+        ctx.lineWidth = 1;
         ctx.strokeRect(x, y, w, h);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '9px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(Sound.enabled ? 'SND' : 'MUTE', x + w / 2, y + 15);
+        ctx.textBaseline = 'middle';
+        drawOutlinedText(ctx, Sound.enabled ? 'SND' : 'MUTE', x + w / 2, y + h / 2,
+            '#FFFFFF', '#000000', 'bold 8px monospace');
+        ctx.textBaseline = 'alphabetic';
         ctx.textAlign = 'left';
     }
 }
