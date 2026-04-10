@@ -1,0 +1,35 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      # worker/ 디렉토리 제외하고 루트 전체 업로드
+      - name: Prepare deploy directory
+        run: |
+          mkdir -p _deploy
+          rsync -av --exclude='worker' --exclude='_deploy' --exclude='.github' . _deploy/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_deploy'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
