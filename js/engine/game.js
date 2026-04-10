@@ -105,6 +105,9 @@ class Game {
         this.gameOverTimer = 0;
         this.clearTimer = 0;
         this.introTimer = 0;
+        this.introCharIndex = 0;
+        this.introTypingTimer = 0;
+        this.introTypingDone = false;
 
         // 프롤로그
         this.prologueScene = 0;
@@ -289,6 +292,9 @@ class Game {
         this.stageTimer = stage.duration;
         this.state = GameState.STAGE_INTRO;
         this.introTimer = 0;
+        this.introCharIndex = 0;      // 스토리 타이핑 현재 글자 위치
+        this.introTypingTimer = 0;    // 타이핑 타이머
+        this.introTypingDone = false; // 타이핑 완료 여부
 
         Sound.init();
         Sound.stageStart();
@@ -516,16 +522,42 @@ class Game {
         }
     }
 
-    // === 스테이지 인트로 ===
+    // === 스테이지 인트로 (스토리 컷씬) ===
     updateStageIntro(dt) {
         this.introTimer += dt;
-        if (this.introTimer >= 2000) {
-            this.state = GameState.PLAYING;
-            Sound.playBGM(this.currentStage);
+        const story = STAGE_STORIES[this.currentStage];
+        const fullText = story.text;
+
+        // 타이핑 효과: 30ms마다 한 글자씩
+        if (!this.introTypingDone) {
+            this.introTypingTimer += dt;
+            const charsToShow = Math.floor(this.introTypingTimer / 30);
+            this.introCharIndex = Math.min(charsToShow, fullText.length);
+            if (this.introCharIndex >= fullText.length) {
+                this.introTypingDone = true;
+            }
         }
-        // 클릭으로 스킵
+
         const click = this.input.getClick();
-        if (click && this.introTimer > 500) {
+        if (click) {
+            // BACK 버튼 (좌상단 10,10 ~ 80,35)
+            if (Collision.pointInRect(click.x, click.y, 10, 10, 70, 30)) {
+                this.state = GameState.STAGE_SELECT;
+                this.input.clearClicks();
+                return;
+            }
+            // 타이핑 중이면 전체 표시, 완료되면 PLAYING 전환
+            if (!this.introTypingDone) {
+                this.introCharIndex = fullText.length;
+                this.introTypingDone = true;
+            } else {
+                this.state = GameState.PLAYING;
+                Sound.playBGM(this.currentStage);
+            }
+        }
+
+        // 타이핑 완료 후 3초 대기 시 자동 시작
+        if (this.introTypingDone && this.introTimer > (fullText.length * 30) + 3000) {
             this.state = GameState.PLAYING;
             Sound.playBGM(this.currentStage);
         }
@@ -533,6 +565,7 @@ class Game {
 
     // === 메인 플레이 ===
     updatePlaying(dt) {
+        if (!this.player) return;
         const stage = STAGES[this.currentStage];
         const dtSec = dt / 1000;
 
@@ -1192,11 +1225,11 @@ class Game {
         // 도트 일러스트가 있으면 렌더
         if (scene.illustration) {
             const illust = scene.illustration;
-            const scale = 4;
+            const scale = 3;
             const iw = illust.width * scale;
             const ih = illust.height * scale;
             const ix = (this.WIDTH - iw) / 2;
-            const iy = 40;
+            const iy = 30;
 
             // 캐시된 프리렌더 사용
             if (!this._prologueIllustCache) this._prologueIllustCache = {};
@@ -1222,7 +1255,7 @@ class Game {
         ctx.textAlign = 'center';
 
         // 텍스트 배경 반투명 박스
-        const textY = scene.illustration ? 200 : 280;
+        const textY = scene.illustration ? 185 : 280;
         if (displayText.length > 0) {
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
             ctx.fillRect(10, textY - 18, this.WIDTH - 20, lines.length * 24 + 16);
@@ -1310,32 +1343,58 @@ class Game {
         ctx.textAlign = 'left';
     }
 
-    // --- 스테이지 인트로 렌더 ---
+    // --- 스테이지 인트로 렌더 (스토리 컷씬) ---
     renderStageIntro(ctx) {
-        // 어두운 배경으로 텍스트 대비 확보
+        // 어두운 배경
         ctx.fillStyle = '#0a0a1a';
         ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
 
-        const stage = STAGES[this.currentStage];
+        const story = STAGE_STORIES[this.currentStage];
         const alpha = Math.min(1, this.introTimer / 500);
-
         ctx.globalAlpha = alpha;
+
+        // BACK 버튼 (좌상단)
+        ctx.fillStyle = '#334455';
+        ctx.fillRect(10, 10, 70, 30);
+        ctx.strokeStyle = '#556677';
+        ctx.strokeRect(10, 10, 70, 30);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#CCCCCC';
+        ctx.font = 'bold 10px monospace';
+        ctx.fillText('\u2190 BACK', 45, 25);
 
-        // 스테이지 이름 — 큰 노란 글씨 + 외곽선
-        drawOutlinedText(ctx, stage.name, this.WIDTH / 2, this.HEIGHT / 2 - 20,
-            '#FFD700', '#000000', 'bold 20px monospace');
+        // 스테이지 타이틀 — 노란색, bold, 상단 1/4
+        drawOutlinedText(ctx, story.title, this.WIDTH / 2, this.HEIGHT / 4,
+            '#FFD700', '#000000', 'bold 16px monospace');
 
-        // 서브타이틀 — 흰색 + 외곽선
-        drawOutlinedText(ctx, stage.subtitle, this.WIDTH / 2, this.HEIGHT / 2 + 15,
-            '#FFFFFF', '#000000', 'bold 14px monospace');
+        // 스토리 텍스트 — 타이핑 효과, 자동 줄바꿈
+        const fullText = story.text;
+        const visibleText = fullText.substring(0, this.introCharIndex);
+        const lines = visibleText.split('\n');
+        const lineHeight = 22;
+        const startY = this.HEIGHT / 4 + 50;
 
-        // "준비하세요..." — 밝은 초록 + 깜빡임
-        const blinkAlpha = (Math.sin(Date.now() / 300) + 1) / 2;
-        ctx.globalAlpha = alpha * (0.4 + blinkAlpha * 0.6);
-        drawOutlinedText(ctx, '준비하세요...', this.WIDTH / 2, this.HEIGHT / 2 + 50,
-            '#44FF88', '#000000', 'bold 12px monospace');
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < lines.length; i++) {
+            // 대사는 노란색, 나머지는 흰색
+            const line = lines[i];
+            if (line.startsWith('"') || line.startsWith('\u201C')) {
+                ctx.fillStyle = '#FFD700';
+            } else {
+                ctx.fillStyle = '#FFFFFF';
+            }
+            ctx.fillText(line, this.WIDTH / 2, startY + i * lineHeight);
+        }
+
+        // 타이핑 완료 후 "터치하여 시작" 깜빡임
+        if (this.introTypingDone) {
+            const blinkAlpha = (Math.sin(Date.now() / 300) + 1) / 2;
+            ctx.globalAlpha = alpha * (0.4 + blinkAlpha * 0.6);
+            drawOutlinedText(ctx, '터치하여 시작 ▶', this.WIDTH / 2, this.HEIGHT - 60,
+                '#44FF88', '#000000', 'bold 12px monospace');
+        }
 
         ctx.globalAlpha = 1;
         ctx.textBaseline = 'alphabetic';
@@ -1668,8 +1727,10 @@ class Game {
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '14px monospace';
-        ctx.fillText('Score: ' + Math.floor(this.player.score), this.WIDTH / 2, 160);
-        ctx.fillText('Dodges: ' + this.player.nearMissCount, this.WIDTH / 2, 185);
+        const pScore = this.player ? Math.floor(this.player.score) : (this.stageScores[this.currentStage] || 0);
+        const pDodge = this.player ? this.player.nearMissCount : 0;
+        ctx.fillText('Score: ' + pScore, this.WIDTH / 2, 160);
+        ctx.fillText('Dodges: ' + pDodge, this.WIDTH / 2, 185);
 
         // 리더보드 표시
         if (this.cachedLeaderboard.length > 0) {
@@ -1702,7 +1763,9 @@ class Game {
             ctx.fillRect(this.WIDTH / 2 + 10, 375, 70, 35);
             ctx.strokeStyle = '#667788';
             ctx.strokeRect(this.WIDTH / 2 + 10, 375, 70, 35);
-            ctx.fillText('SELECT', this.WIDTH / 2 + 45, 397);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 10px monospace';
+            ctx.fillText('돌아가기', this.WIDTH / 2 + 45, 397);
         }
 
         ctx.textAlign = 'left';
